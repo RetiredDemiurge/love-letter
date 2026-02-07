@@ -1,0 +1,1 @@
+"""Love Letter game package."""

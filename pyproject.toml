@@ -1,0 +1,21 @@
+[project]
+name = "love-letter"
+version = "0.1.0"
+description = "Console Love Letter (engine separated for future browser UI)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Your Name" }
+]
+
+dependencies = [
+  "rich>=13.7.1",
+]
+
+[project.scripts]
+love-letter = "love_letter.cli.main:main"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["src"]

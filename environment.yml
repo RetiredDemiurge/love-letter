@@ -1,0 +1,9 @@
+name: love-letter
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.11
+  - pip
+  - pip:
+      - rich>=13.7.1
+      - pytest>=7.4.0
