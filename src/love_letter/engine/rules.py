@@ -96,9 +96,16 @@ def _choose_start_player_index(game_state: GameState, rng: Random) -> int:
 
 
 def start_turn(round_state: RoundState, player_id: int, rng: Random) -> bool:
+    if round_state.round_over:
+        raise RulesError("Round is over.")
+    current = round_state.players[round_state.current_player_idx]
+    if current.id != player_id:
+        raise RulesError("Not your turn.")
     player = _find_player(round_state, player_id)
     if player.eliminated:
         raise RulesError("Eliminated players cannot take turns.")
+    if len(player.hand) != 1:
+        raise RulesError("You have already drawn this turn.")
 
     if player.protected:
         player.protected = False
@@ -122,10 +129,16 @@ def legal_play_cards(hand: list[CardType]) -> list[CardType]:
 
 def validate_action(round_state: RoundState, action: Action) -> str | None:
     player = _find_player(round_state, action.player_id)
+    if round_state.round_over:
+        return "Round is over."
+    if round_state.players[round_state.current_player_idx].id != action.player_id:
+        return "Not your turn."
     if player.eliminated:
         return "You are eliminated."
     if action.card not in player.hand:
         return "You must play a card from your hand."
+    if len(player.hand) != 2:
+        return "You must draw at the start of your turn."
 
     legal_cards = legal_play_cards(player.hand)
     if action.card not in legal_cards:

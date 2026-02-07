@@ -91,6 +91,9 @@ class GameSession:
 
     def play(self, action_in: ActionIn) -> None:
         round_state = self.round_state
+        current = round_state.players[round_state.current_player_idx]
+        if current.id != action_in.player_id:
+            raise RulesError("Not your turn.")
         action = Action(
             player_id=action_in.player_id,
             card=_card_type(action_in.card),

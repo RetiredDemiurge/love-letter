@@ -60,6 +60,17 @@ function setStatus(message) {
   statusEl.textContent = message;
 }
 
+function updateControls() {
+  if (!state) return;
+  const me = state.players.find((player) => player.id === playerId);
+  const isMyTurn = state.current_player_id === playerId;
+
+  const handCount = me?.hand_count ?? 0;
+  btnStart.disabled = state.game_over || state.round_over || !isMyTurn || handCount !== 1;
+  btnPlay.disabled = state.game_over || state.round_over || !isMyTurn || handCount !== 2;
+  btnNextRound.disabled = state.game_over || !state.round_over;
+}
+
 function createCard(cardId, index) {
   const div = document.createElement("div");
   div.className = "card";
@@ -87,9 +98,42 @@ function createCard(cardId, index) {
   return div;
 }
 
+function getMyHand() {
+  return state?.players.find((player) => player.id === playerId)?.hand ?? [];
+}
+
+function getSelectedCardId() {
+  const hand = getMyHand();
+  if (selectedIndex === null) return null;
+  return hand[selectedIndex] ?? null;
+}
+
+function getValidTargets(cardId) {
+  if (!state) return [];
+  const valid = [];
+  for (const player of state.players) {
+    if (player.eliminated) continue;
+    if (cardId === "guard" || cardId === "priest" || cardId === "baron" || cardId === "king") {
+      if (player.id === playerId) continue;
+      if (player.protected) continue;
+      valid.push(player);
+      continue;
+    }
+    if (cardId === "prince") {
+      if (player.id === playerId) {
+        valid.push(player);
+        continue;
+      }
+      if (player.protected) continue;
+      valid.push(player);
+    }
+  }
+  return valid;
+}
+
 function renderHand() {
   handEl.innerHTML = "";
-  const hand = state?.players.find((p) => p.id === playerId)?.hand ?? [];
+  const hand = getMyHand();
   hand.forEach((cardId, index) => {
     handEl.appendChild(createCard(cardId, index));
   });
@@ -180,7 +224,9 @@ function renderSelectors() {
   noneOption.value = "";
   noneOption.textContent = "None";
   targetSelect.appendChild(noneOption);
-  state.players.forEach((player) => {
+  const selectedCardId = getSelectedCardId();
+  const targets = selectedCardId ? getValidTargets(selectedCardId) : state.players;
+  targets.forEach((player) => {
     const option = document.createElement("option");
     option.value = player.id;
     option.textContent = player.name;
@@ -211,12 +257,16 @@ function renderLog() {
 
 function render() {
   if (!state) return;
+  if (selectedIndex !== null && !getSelectedCardId()) {
+    selectedIndex = null;
+  }
   renderSelectors();
   renderPlayers();
   renderHand();
   renderPiles();
   renderLog();
   setStatus(state.game_over ? "Game Over" : state.round_over ? "Round Over" : "In Play");
+  updateControls();
 }
 
 async function fetchState() {
@@ -248,15 +298,16 @@ async function startTurn() {
 }
 
 async function playSelected() {
-  const hand = state.players.find((player) => player.id === playerId)?.hand ?? [];
+  const hand = getMyHand();
   if (selectedIndex === null || !hand[selectedIndex]) {
     log("Select a card first.");
     return;
   }
   const cardId = hand[selectedIndex];
   const meta = CARD_META[cardId] ?? {};
+  const targets = getValidTargets(cardId);
   const target = targetSelect.value ? Number(targetSelect.value) : null;
-  if (meta.needsTarget && target === null) {
+  if (meta.needsTarget && targets.length > 0 && target === null) {
     log("Select a target.");
     return;
   }

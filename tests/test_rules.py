@@ -44,7 +44,7 @@ def test_countess_forced_play() -> None:
 
 
 def test_guard_guess_eliminates_on_match() -> None:
-    player = PlayerState(id=0, name="A", hand=[CardType.GUARD])
+    player = PlayerState(id=0, name="A", hand=[CardType.GUARD, CardType.HANDMAID])
     target = PlayerState(id=1, name="B", hand=[CardType.PRIEST])
     round_state = _round_with_players([player, target])
 
@@ -55,7 +55,7 @@ def test_guard_guess_eliminates_on_match() -> None:
 
 
 def test_guard_guess_no_elimination_on_miss() -> None:
-    player = PlayerState(id=0, name="A", hand=[CardType.GUARD])
+    player = PlayerState(id=0, name="A", hand=[CardType.GUARD, CardType.HANDMAID])
     target = PlayerState(id=1, name="B", hand=[CardType.PRIEST])
     round_state = _round_with_players([player, target])
 
@@ -66,7 +66,7 @@ def test_guard_guess_no_elimination_on_miss() -> None:
 
 
 def test_guard_no_targets_when_all_protected() -> None:
-    player = PlayerState(id=0, name="A", hand=[CardType.GUARD])
+    player = PlayerState(id=0, name="A", hand=[CardType.GUARD, CardType.HANDMAID])
     target = PlayerState(id=1, name="B", hand=[CardType.PRIEST], protected=True)
     round_state = _round_with_players([player, target])
 
@@ -77,19 +77,19 @@ def test_guard_no_targets_when_all_protected() -> None:
 
 
 def test_king_no_targets_when_all_protected() -> None:
-    player = PlayerState(id=0, name="A", hand=[CardType.KING])
+    player = PlayerState(id=0, name="A", hand=[CardType.KING, CardType.GUARD])
     target = PlayerState(id=1, name="B", hand=[CardType.PRINCE], protected=True)
     round_state = _round_with_players([player, target])
 
     action = Action(player_id=0, card=CardType.KING, target_id=None)
     apply_action(round_state, action, Random(0))
 
-    assert player.hand == []
+    assert player.hand == [CardType.GUARD]
     assert target.hand == [CardType.PRINCE]
 
 
 def test_prince_draws_burned_when_deck_empty() -> None:
-    player = PlayerState(id=0, name="A", hand=[CardType.PRINCE])
+    player = PlayerState(id=0, name="A", hand=[CardType.PRINCE, CardType.GUARD])
     target = PlayerState(id=1, name="B", hand=[CardType.GUARD])
     round_state = _round_with_players([player, target])
     round_state.burned = [CardType.PRIEST]
@@ -139,7 +139,7 @@ def test_tie_breaker_uses_discard_sum() -> None:
 
 
 def test_princess_played_eliminates_self() -> None:
-    player = PlayerState(id=0, name="A", hand=[CardType.PRINCESS])
+    player = PlayerState(id=0, name="A", hand=[CardType.PRINCESS, CardType.GUARD])
     target = PlayerState(id=1, name="B", hand=[CardType.GUARD])
     round_state = _round_with_players([player, target])
 
@@ -148,11 +148,11 @@ def test_princess_played_eliminates_self() -> None:
 
     assert player.eliminated is True
     assert player.hand == []
-    assert player.discard == [CardType.PRINCESS]
+    assert player.discard == [CardType.PRINCESS, CardType.GUARD]
 
 
 def test_prince_discards_princess_eliminates_target() -> None:
-    player = PlayerState(id=0, name="A", hand=[CardType.PRINCE])
+    player = PlayerState(id=0, name="A", hand=[CardType.PRINCE, CardType.GUARD])
     target = PlayerState(id=1, name="B", hand=[CardType.PRINCESS])
     round_state = _round_with_players([player, target])
 
@@ -175,7 +175,7 @@ def test_guard_cannot_guess_guard() -> None:
 
 
 def test_elimination_discards_hand() -> None:
-    player = PlayerState(id=0, name="A", hand=[CardType.GUARD])
+    player = PlayerState(id=0, name="A", hand=[CardType.GUARD, CardType.HANDMAID])
     target = PlayerState(id=1, name="B", hand=[CardType.PRIEST])
     round_state = _round_with_players([player, target])
 
@@ -200,7 +200,7 @@ def test_baron_eliminates_lower_card() -> None:
 
 
 def test_priest_reveal_no_state_change() -> None:
-    player = PlayerState(id=0, name="A", hand=[CardType.PRIEST])
+    player = PlayerState(id=0, name="A", hand=[CardType.PRIEST, CardType.GUARD])
     target = PlayerState(id=1, name="B", hand=[CardType.GUARD])
     round_state = _round_with_players([player, target])
 
@@ -236,6 +236,37 @@ def test_handmaid_protection_ends_on_turn_start() -> None:
     assert len(player.hand) == 2
 
 
+def test_start_turn_only_once() -> None:
+    player = PlayerState(id=0, name="A", hand=[CardType.GUARD, CardType.PRIEST])
+    target = PlayerState(id=1, name="B", hand=[CardType.BARON])
+    round_state = _round_with_players([player, target])
+    round_state.deck = [CardType.PRINCE]
+
+    with pytest.raises(RulesError):
+        start_turn(round_state, player.id, Random(0))
+
+
+def test_start_turn_blocked_when_round_over() -> None:
+    player = PlayerState(id=0, name="A", hand=[CardType.GUARD])
+    target = PlayerState(id=1, name="B", hand=[CardType.BARON])
+    round_state = _round_with_players([player, target])
+    round_state.round_over = True
+
+    with pytest.raises(RulesError):
+        start_turn(round_state, player.id, Random(0))
+
+
+def test_start_turn_wrong_player() -> None:
+    player = PlayerState(id=0, name="A", hand=[CardType.GUARD])
+    target = PlayerState(id=1, name="B", hand=[CardType.BARON])
+    round_state = _round_with_players([player, target])
+    round_state.deck = [CardType.PRINCE]
+    round_state.current_player_idx = 0
+
+    with pytest.raises(RulesError):
+        start_turn(round_state, target.id, Random(0))
+
+
 def test_round_ends_when_deck_empty_after_turn() -> None:
     game_state = new_game(["A", "B"])
     player_a, player_b = game_state.players
@@ -253,3 +284,24 @@ def test_round_ends_when_deck_empty_after_turn() -> None:
 
     assert round_state.round_over is True
     assert player_a.tokens == 1
+
+
+def test_play_requires_two_cards_in_hand() -> None:
+    player = PlayerState(id=0, name="A", hand=[CardType.GUARD])
+    target = PlayerState(id=1, name="B", hand=[CardType.PRIEST])
+    round_state = _round_with_players([player, target])
+
+    action = Action(player_id=0, card=CardType.GUARD, target_id=1, guess=CardType.PRIEST)
+    with pytest.raises(RulesError):
+        apply_action(round_state, action, Random(0))
+
+
+def test_play_wrong_player_turn() -> None:
+    player = PlayerState(id=0, name="A", hand=[CardType.GUARD, CardType.HANDMAID])
+    target = PlayerState(id=1, name="B", hand=[CardType.BARON])
+    round_state = _round_with_players([player, target])
+    round_state.current_player_idx = 0
+
+    action = Action(player_id=1, card=CardType.BARON, target_id=0)
+    with pytest.raises(RulesError):
+        apply_action(round_state, action, Random(0))
