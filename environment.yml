@@ -7,3 +7,5 @@ dependencies:
   - pip:
       - rich>=13.7.1
       - pytest>=7.4.0
+      - fastapi>=0.111.0
+      - uvicorn>=0.30.0

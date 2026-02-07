@@ -35,6 +35,18 @@ Quick run without installing the package:
 PYTHONPATH=src python -m love_letter
 ```
 
+## Visual Prototype (Browser)
+
+This prototype is wired to the Python rules engine via FastAPI.
+
+```bash
+python -m uvicorn love_letter.server:app --reload --port 8000
+```
+
+Then visit `http://localhost:8000/`.
+
+Card images live in `assets/cards`. They are extracted from the Love Letter rulebook PDF for personal use.
+
 ## Tests
 
 ```bash

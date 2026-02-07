@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Love Letter — Tabletop Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Crimson+Pro:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg"></div>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Tabletop Prototype</p>
+        <h1>Love Letter</h1>
+        <p class="sub">
+          A visual browser prototype wired to the Python rules engine.
+        </p>
+      </div>
+      <div class="actions">
+        <button id="btn-start">Start Turn</button>
+        <button id="btn-play">Play Selected</button>
+        <button id="btn-hide" class="ghost">Hide Hand</button>
+        <button id="btn-next-round" class="ghost">Next Round</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="controls">
+        <div class="control">
+          <label for="player-select">Seat</label>
+          <select id="player-select"></select>
+        </div>
+        <div class="control">
+          <label for="target-select">Target</label>
+          <select id="target-select"></select>
+        </div>
+        <div class="control">
+          <label for="guess-select">Guard Guess</label>
+          <select id="guess-select"></select>
+        </div>
+        <div class="control status" id="status"></div>
+      </section>
+
+      <section class="tabletop">
+        <div class="player-zones" id="players"></div>
+
+        <div class="table-center">
+          <div class="pile" id="deck">
+            <div class="card back"></div>
+            <span class="count" id="deck-count">0</span>
+            <p>Deck</p>
+          </div>
+          <div class="pile" id="burned">
+            <div class="card back" data-muted></div>
+            <span class="count" id="burned-count">0</span>
+            <p>Burned</p>
+          </div>
+          <div class="pile" id="face-up">
+            <div class="face-up" id="face-up-cards"></div>
+            <p>Face Up</p>
+          </div>
+          <div class="pile dropzone" id="discard-zone">
+            <div class="card back" data-muted></div>
+            <p>Discard</p>
+          </div>
+        </div>
+
+        <div class="hand-zone">
+          <h2>Hand</h2>
+          <p class="hint">Drag a card onto the discard pile or click to select, then press Play.</p>
+          <div id="hand" class="card-row"></div>
+        </div>
+      </section>
+
+      <section class="log-zone">
+        <h2>Log</h2>
+        <ul id="log" class="log"></ul>
+      </section>
+
+      <section class="gallery">
+        <h2>Card Gallery</h2>
+        <div id="gallery" class="grid"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>
+        For personal use. Card art sourced from your Love Letter rulebook PDF.
+      </p>
+    </footer>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,338 @@
+const CARD_META = {
+  guard: { name: "Guard", needsTarget: true, needsGuess: true },
+  priest: { name: "Priest", needsTarget: true },
+  baron: { name: "Baron", needsTarget: true },
+  handmaid: { name: "Handmaid" },
+  prince: { name: "Prince", needsTarget: true, canSelf: true },
+  king: { name: "King", needsTarget: true },
+  countess: { name: "Countess" },
+  princess: { name: "Princess" },
+};
+
+const UNIQUE_CARDS = Object.keys(CARD_META).map((id) => ({ id, name: CARD_META[id].name }));
+const DECK = [
+  ...Array(5).fill("guard"),
+  ...Array(2).fill("priest"),
+  ...Array(2).fill("baron"),
+  ...Array(2).fill("handmaid"),
+  ...Array(2).fill("prince"),
+  "king",
+  "countess",
+  "princess",
+];
+
+const cardPath = (id) => `../assets/cards/${id}.png`;
+
+const handEl = document.querySelector("#hand");
+const logEl = document.querySelector("#log");
+const galleryEl = document.querySelector("#gallery");
+const playersEl = document.querySelector("#players");
+const statusEl = document.querySelector("#status");
+
+const deckCountEl = document.querySelector("#deck-count");
+const burnedCountEl = document.querySelector("#burned-count");
+const faceUpEl = document.querySelector("#face-up-cards");
+
+const btnStart = document.querySelector("#btn-start");
+const btnPlay = document.querySelector("#btn-play");
+const btnHide = document.querySelector("#btn-hide");
+const btnNextRound = document.querySelector("#btn-next-round");
+
+const playerSelect = document.querySelector("#player-select");
+const targetSelect = document.querySelector("#target-select");
+const guessSelect = document.querySelector("#guess-select");
+
+const discardZone = document.querySelector("#discard-zone");
+
+let state = null;
+let selectedIndex = null;
+let selectedTarget = null;
+let hidden = false;
+let playerId = 0;
+
+function log(message) {
+  const item = document.createElement("li");
+  item.textContent = message;
+  logEl.prepend(item);
+}
+
+function setStatus(message) {
+  statusEl.textContent = message;
+}
+
+function createCard(cardId, index) {
+  const div = document.createElement("div");
+  div.className = "card";
+  div.draggable = true;
+  if (hidden) {
+    div.classList.add("hidden");
+  }
+  if (selectedIndex === index) {
+    div.classList.add("selected");
+  }
+  const img = document.createElement("img");
+  img.src = cardPath(cardId);
+  img.alt = CARD_META[cardId]?.name ?? cardId;
+  div.appendChild(img);
+
+  div.addEventListener("click", () => {
+    selectedIndex = selectedIndex === index ? null : index;
+    render();
+  });
+
+  div.addEventListener("dragstart", (event) => {
+    event.dataTransfer.setData("text/plain", String(index));
+  });
+
+  return div;
+}
+
+function renderHand() {
+  handEl.innerHTML = "";
+  const hand = state?.players.find((p) => p.id === playerId)?.hand ?? [];
+  hand.forEach((cardId, index) => {
+    handEl.appendChild(createCard(cardId, index));
+  });
+}
+
+function renderPlayers() {
+  playersEl.innerHTML = "";
+  state.players.forEach((player) => {
+    const card = document.createElement("div");
+    card.className = "player";
+    if (player.id === state.current_player_id) {
+      card.classList.add("active");
+    }
+    if (player.id === selectedTarget) {
+      card.classList.add("selected");
+    }
+    card.innerHTML = `
+      <h3>${player.name}</h3>
+      <div class="meta"><span>Tokens</span><span>${player.tokens}</span></div>
+      <div class="meta"><span>Hand</span><span>${player.hand_count}</span></div>
+      <div class="meta"><span>Discard</span><span>${player.discard.length}</span></div>
+      <div class="status">${player.eliminated ? "Eliminated" : player.protected ? "Protected" : ""}</div>
+    `;
+    const miniDiscard = document.createElement("div");
+    miniDiscard.className = "mini-discard";
+    player.discard.slice(-3).reverse().forEach((cardId) => {
+      const mini = document.createElement("div");
+      mini.className = "card";
+      const img = document.createElement("img");
+      img.src = cardPath(cardId);
+      img.alt = CARD_META[cardId]?.name ?? cardId;
+      mini.appendChild(img);
+      miniDiscard.appendChild(mini);
+    });
+    card.appendChild(miniDiscard);
+    card.addEventListener("click", () => {
+      selectedTarget = player.id;
+      targetSelect.value = String(player.id);
+      renderPlayers();
+    });
+    playersEl.appendChild(card);
+  });
+}
+
+function renderPiles() {
+  deckCountEl.textContent = state.deck_count;
+  burnedCountEl.textContent = state.burned_count;
+  faceUpEl.innerHTML = "";
+  state.face_up.forEach((cardId) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const img = document.createElement("img");
+    img.src = cardPath(cardId);
+    img.alt = CARD_META[cardId]?.name ?? cardId;
+    card.appendChild(img);
+    faceUpEl.appendChild(card);
+  });
+}
+
+function renderGallery() {
+  galleryEl.innerHTML = "";
+  DECK.forEach((cardId, index) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "card";
+    const img = document.createElement("img");
+    img.src = cardPath(cardId);
+    img.alt = CARD_META[cardId]?.name ?? cardId;
+    wrapper.appendChild(img);
+    wrapper.title = `Card ${index + 1}`;
+    galleryEl.appendChild(wrapper);
+  });
+}
+
+function renderSelectors() {
+  playerSelect.innerHTML = "";
+  state.players.forEach((player) => {
+    const option = document.createElement("option");
+    option.value = player.id;
+    option.textContent = player.name;
+    if (player.id === playerId) {
+      option.selected = true;
+    }
+    playerSelect.appendChild(option);
+  });
+
+  targetSelect.innerHTML = "";
+  const noneOption = document.createElement("option");
+  noneOption.value = "";
+  noneOption.textContent = "None";
+  targetSelect.appendChild(noneOption);
+  state.players.forEach((player) => {
+    const option = document.createElement("option");
+    option.value = player.id;
+    option.textContent = player.name;
+    if (player.id === selectedTarget) {
+      option.selected = true;
+    }
+    targetSelect.appendChild(option);
+  });
+
+  guessSelect.innerHTML = "";
+  Object.keys(CARD_META).forEach((id) => {
+    if (id === "guard") return;
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = CARD_META[id].name;
+    guessSelect.appendChild(option);
+  });
+}
+
+function renderLog() {
+  logEl.innerHTML = "";
+  [...state.events].reverse().forEach((event) => {
+    const li = document.createElement("li");
+    li.textContent = `${event.kind}: ${JSON.stringify(event.data)}`;
+    logEl.appendChild(li);
+  });
+}
+
+function render() {
+  if (!state) return;
+  renderSelectors();
+  renderPlayers();
+  renderHand();
+  renderPiles();
+  renderLog();
+  setStatus(state.game_over ? "Game Over" : state.round_over ? "Round Over" : "In Play");
+}
+
+async function fetchState() {
+  const response = await fetch(`/api/state?player_id=${playerId}`);
+  if (!response.ok) {
+    log("Server not available. Start the FastAPI server.");
+    return;
+  }
+  state = await response.json();
+  if (!state.players.find((player) => player.id === playerId)) {
+    playerId = state.players[0]?.id ?? 0;
+  }
+  render();
+}
+
+async function startTurn() {
+  const response = await fetch("/api/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ player_id: playerId }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    log(error.detail || "Start turn failed.");
+    return;
+  }
+  state = await response.json();
+  render();
+}
+
+async function playSelected() {
+  const hand = state.players.find((player) => player.id === playerId)?.hand ?? [];
+  if (selectedIndex === null || !hand[selectedIndex]) {
+    log("Select a card first.");
+    return;
+  }
+  const cardId = hand[selectedIndex];
+  const meta = CARD_META[cardId] ?? {};
+  const target = targetSelect.value ? Number(targetSelect.value) : null;
+  if (meta.needsTarget && target === null) {
+    log("Select a target.");
+    return;
+  }
+  const payload = {
+    player_id: playerId,
+    card: cardId,
+    target_id: meta.needsTarget ? target : null,
+    guess: meta.needsGuess ? guessSelect.value : null,
+  };
+
+  const response = await fetch("/api/play", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    log(error.detail || "Play failed.");
+    return;
+  }
+  state = await response.json();
+  selectedIndex = null;
+  render();
+}
+
+async function nextRound() {
+  const response = await fetch("/api/next_round", { method: "POST" });
+  if (!response.ok) {
+    const error = await response.json();
+    log(error.detail || "Next round failed.");
+    return;
+  }
+  state = await response.json();
+  render();
+}
+
+btnStart.addEventListener("click", startTurn);
+btnPlay.addEventListener("click", playSelected);
+btnNextRound.addEventListener("click", nextRound);
+btnHide.addEventListener("click", () => {
+  hidden = !hidden;
+  btnHide.textContent = hidden ? "Show Hand" : "Hide Hand";
+  render();
+});
+
+playerSelect.addEventListener("change", () => {
+  playerId = Number(playerSelect.value);
+  selectedIndex = null;
+  selectedTarget = null;
+  fetchState();
+});
+
+targetSelect.addEventListener("change", () => {
+  selectedTarget = targetSelect.value ? Number(targetSelect.value) : null;
+  renderPlayers();
+});
+
+discardZone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  discardZone.classList.add("dragover");
+});
+
+discardZone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  discardZone.classList.remove("dragover");
+  const index = Number(event.dataTransfer.getData("text/plain"));
+  if (!Number.isNaN(index)) {
+    selectedIndex = index;
+    playSelected();
+  }
+});
+
+discardZone.addEventListener("dragleave", () => {
+  discardZone.classList.remove("dragover");
+});
+
+renderGallery();
+fetchState();

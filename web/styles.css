@@ -1,0 +1,386 @@
+:root {
+  --ink: #2b1c0f;
+  --ink-soft: #513b2a;
+  --parchment: #f3e3c9;
+  --gold: #d7a93b;
+  --crimson: #862d2a;
+  --forest: #294a3a;
+  --shadow: rgba(24, 14, 8, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Crimson Pro", serif;
+  color: var(--ink);
+  min-height: 100vh;
+  background: radial-gradient(circle at 20% 20%, #f5e9d6, #e2cfa9 55%, #b48a4d 110%);
+}
+
+.bg {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.45), transparent 45%),
+    radial-gradient(circle at 10% 90%, rgba(255, 227, 170, 0.4), transparent 40%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2.5rem 7vw 1.5rem;
+}
+
+.hero h1 {
+  font-family: "Cinzel", serif;
+  font-size: clamp(2.4rem, 3.4vw, 3.6rem);
+  margin: 0.2rem 0 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.2rem;
+  color: var(--crimson);
+  font-weight: 600;
+  margin: 0;
+}
+
+.sub {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+  max-width: 35rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+button {
+  border: none;
+  padding: 0.7rem 1.4rem;
+  font-family: "Cinzel", serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08rem;
+  font-size: 0.85rem;
+  background: var(--crimson);
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 10px 20px rgba(90, 20, 18, 0.25);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 24px rgba(90, 20, 18, 0.3);
+}
+
+button.ghost {
+  background: transparent;
+  color: var(--crimson);
+  border: 1px solid var(--crimson);
+  box-shadow: none;
+}
+
+.layout {
+  display: grid;
+  gap: 2rem;
+  padding: 0 7vw 3rem;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 1rem;
+  padding: 1rem 1.4rem;
+  box-shadow: 0 12px 24px var(--shadow);
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.control label {
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  font-family: "Cinzel", serif;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.control select {
+  padding: 0.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  font-family: "Crimson Pro", serif;
+  font-size: 1rem;
+}
+
+.status {
+  font-weight: 600;
+  color: var(--crimson);
+  justify-content: center;
+}
+
+.tabletop {
+  display: grid;
+  gap: 2rem;
+  padding: 1.5rem;
+  border-radius: 1.4rem;
+  background: rgba(45, 73, 50, 0.18);
+  box-shadow: inset 0 0 40px rgba(20, 10, 5, 0.35);
+}
+
+.player-zones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.player {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 12px 24px var(--shadow);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s ease, border 0.2s ease;
+}
+
+.player.active {
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+
+.player.selected {
+  border-color: var(--crimson);
+}
+
+.player h3 {
+  margin: 0 0 0.6rem;
+  font-family: "Cinzel", serif;
+  font-size: 1rem;
+}
+
+.player .meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.player .status {
+  font-size: 0.8rem;
+  color: var(--crimson);
+  margin-top: 0.4rem;
+}
+
+.mini-discard {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+}
+
+.mini-discard .card {
+  width: 42px;
+  border-radius: 0.4rem;
+}
+
+.table-center {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  align-items: center;
+  justify-items: center;
+}
+
+.pile {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 1rem;
+  padding: 1rem;
+  width: 140px;
+  text-align: center;
+  box-shadow: 0 12px 24px var(--shadow);
+}
+
+.pile p {
+  margin: 0.4rem 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  font-size: 0.7rem;
+  font-family: "Cinzel", serif;
+  color: var(--ink-soft);
+}
+
+.card-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.card {
+  width: 120px;
+  aspect-ratio: 5 / 7;
+  border-radius: 0.8rem;
+  overflow: hidden;
+  box-shadow: 0 12px 20px rgba(24, 14, 8, 0.35);
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: #f3ede5;
+  animation: fade-in 0.25s ease;
+}
+
+.card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card.selected {
+  outline: 3px solid var(--gold);
+  transform: translateY(-6px) scale(1.02);
+}
+
+.card.hidden img {
+  filter: saturate(0) brightness(0.3);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 26px rgba(24, 14, 8, 0.4);
+}
+
+.card.back {
+  background: linear-gradient(135deg, #8b2d2a, #5d1c1a 55%, #2f100f);
+  position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.card.back::after {
+  content: "LL";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: "Cinzel", serif;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 2rem;
+  letter-spacing: 0.3rem;
+}
+
+.card.back[data-muted] {
+  opacity: 0.5;
+}
+
+.dropzone {
+  border: 2px dashed rgba(134, 45, 42, 0.4);
+}
+
+.dropzone.dragover {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(215, 169, 59, 0.4);
+}
+
+.count {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.face-up {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.face-up .card {
+  width: 50px;
+}
+
+.hand-zone h2,
+.log-zone h2,
+.gallery h2 {
+  margin: 0 0 1rem;
+  font-family: "Cinzel", serif;
+  text-transform: uppercase;
+  letter-spacing: 0.12rem;
+  font-size: 1rem;
+}
+
+.hand-zone .hint {
+  margin: -0.6rem 0 1rem;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.log-zone,
+.gallery {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 12px 24px var(--shadow);
+}
+
+.log {
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--ink-soft);
+}
+
+.log li {
+  margin-bottom: 0.4rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.footer {
+  text-align: center;
+  padding: 1rem 0 2rem;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 700px) {
+  .hero {
+    padding: 2rem 6vw 1rem;
+  }
+
+  .card {
+    width: 92px;
+  }
+}

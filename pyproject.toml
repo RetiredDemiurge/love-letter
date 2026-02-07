@@ -11,6 +11,8 @@ authors = [
 
 dependencies = [
   "rich>=13.7.1",
+  "fastapi>=0.111.0",
+  "uvicorn>=0.30.0",
 ]
 
 [project.scripts]
