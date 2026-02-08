@@ -1,12 +1,12 @@
 const CARD_META = {
-  guard: { name: "Guard", needsTarget: true, needsGuess: true },
-  priest: { name: "Priest", needsTarget: true },
-  baron: { name: "Baron", needsTarget: true },
-  handmaid: { name: "Handmaid" },
-  prince: { name: "Prince", needsTarget: true, canSelf: true },
-  king: { name: "King", needsTarget: true },
-  countess: { name: "Countess" },
-  princess: { name: "Princess" },
+  guard: { name: "Guard", needsTarget: true, needsGuess: true, hint: "Guess a card in opponent hand (except Guard)." },
+  priest: { name: "Priest", needsTarget: true, hint: "Privately view one opponent hand." },
+  baron: { name: "Baron", needsTarget: true, hint: "Compare hands; lower value is eliminated." },
+  handmaid: { name: "Handmaid", hint: "You are protected until your next turn." },
+  prince: { name: "Prince", needsTarget: true, canSelf: true, hint: "Target discards hand and draws replacement." },
+  king: { name: "King", needsTarget: true, hint: "Swap hands with an opponent." },
+  countess: { name: "Countess", hint: "Must be played with King or Prince." },
+  princess: { name: "Princess", hint: "If discarded, you are eliminated." },
 };
 
 const DECK = [
@@ -36,7 +36,6 @@ const burnedCountEl = document.querySelector("#burned-count");
 const faceUpEl = document.querySelector("#face-up-cards");
 
 const btnStart = document.querySelector("#btn-start");
-const btnPlay = document.querySelector("#btn-play");
 const btnHide = document.querySelector("#btn-hide");
 const btnNextRound = document.querySelector("#btn-next-round");
 const btnCreateTable = document.querySelector("#btn-create-table");
@@ -50,8 +49,16 @@ const joinCodeInput = document.querySelector("#join-code-input");
 const invitePanel = document.querySelector("#invite-panel");
 const inviteCodeInput = document.querySelector("#invite-code");
 const seatSelect = document.querySelector("#seat-select");
-const targetSelect = document.querySelector("#target-select");
 const guessSelect = document.querySelector("#guess-select");
+const cardPreviewEl = document.querySelector("#card-preview");
+const cardPreviewImageEl = document.querySelector("#card-preview-image");
+const cardPreviewNameEl = document.querySelector("#card-preview-name");
+const cardPreviewHintEl = document.querySelector("#card-preview-hint");
+const actionTrayEl = document.querySelector("#action-tray");
+const actionSummaryEl = document.querySelector("#action-summary");
+const targetPickerEl = document.querySelector("#target-picker");
+const btnPlayContext = document.querySelector("#btn-play-context");
+const btnCancelSelect = document.querySelector("#btn-cancel-select");
 
 const discardZone = document.querySelector("#discard-zone");
 
@@ -63,6 +70,7 @@ let busy = false;
 let fetchSeq = 0;
 let localMessages = [];
 let stateSignature = "";
+let previewCardId = null;
 
 let gameId = null;
 let seatToken = null;
@@ -170,10 +178,10 @@ function updateControls() {
   btnCopyCode.disabled = busy || !state?.join_code || playerId !== 0;
   btnCopyLink.disabled = busy || !state?.join_code || playerId !== 0;
   btnHide.disabled = busy;
+  btnPlayContext.disabled = true;
 
   if (!state || playerId === null) {
     btnStart.disabled = true;
-    btnPlay.disabled = true;
     btnNextRound.disabled = true;
     return;
   }
@@ -182,10 +190,56 @@ function updateControls() {
   const isMyTurn = state.current_player_id === playerId;
   const handCount = me?.hand_count ?? 0;
   const waiting = Boolean(state.waiting_for_opponent);
+  const selectedCardId = getSelectedCardId();
+  const selectedMeta = selectedCardId ? CARD_META[selectedCardId] : null;
+  const targetOptions = selectedCardId ? getTargetOptions(selectedCardId) : [];
+  const selectableTargetIds = targetOptions.filter((item) => item.selectable).map((item) => item.player.id);
+  const targetRequired = Boolean(selectedMeta?.needsTarget);
+  const missingTarget = targetRequired && selectableTargetIds.length > 0 && !selectableTargetIds.includes(selectedTarget);
 
   btnStart.disabled = busy || waiting || state.game_over || state.round_over || !isMyTurn || handCount !== 1;
-  btnPlay.disabled = busy || waiting || state.game_over || state.round_over || !isMyTurn || handCount !== 2;
+  btnPlayContext.disabled =
+    busy ||
+    waiting ||
+    state.game_over ||
+    state.round_over ||
+    !isMyTurn ||
+    handCount !== 2 ||
+    !selectedCardId ||
+    missingTarget;
   btnNextRound.disabled = busy || waiting || state.game_over || !state.round_over;
+}
+
+function getTargetOptions(cardId) {
+  if (!state || playerId === null) return [];
+  if (!CARD_META[cardId]?.needsTarget) return [];
+
+  const options = [];
+  for (const player of state.players) {
+    let selectable = true;
+    let reason = "Available target";
+    if (player.eliminated) {
+      selectable = false;
+      reason = "Player is eliminated";
+    } else if (cardId === "prince") {
+      if (player.id !== playerId && player.protected) {
+        selectable = false;
+        reason = "Protected by Handmaid";
+      } else if (player.id === playerId) {
+        reason = "Self target is allowed";
+      }
+    } else {
+      if (player.id === playerId) {
+        selectable = false;
+        reason = "You cannot target yourself";
+      } else if (player.protected) {
+        selectable = false;
+        reason = "Protected by Handmaid";
+      }
+    }
+    options.push({ player, selectable, reason });
+  }
+  return options;
 }
 
 function createCard(cardId, index) {
@@ -206,7 +260,20 @@ function createCard(cardId, index) {
 
   div.addEventListener("click", () => {
     selectedIndex = selectedIndex === index ? null : index;
+    if (selectedIndex === null) {
+      selectedTarget = null;
+    }
     render();
+  });
+
+  div.addEventListener("mouseenter", () => {
+    previewCardId = cardId;
+    renderCardPreview();
+  });
+
+  div.addEventListener("mouseleave", () => {
+    previewCardId = null;
+    renderCardPreview();
   });
 
   div.addEventListener("dragstart", (event) => {
@@ -224,29 +291,6 @@ function getSelectedCardId() {
   const hand = getMyHand();
   if (selectedIndex === null) return null;
   return hand[selectedIndex] ?? null;
-}
-
-function getValidTargets(cardId) {
-  if (!state || playerId === null) return [];
-  const valid = [];
-  for (const player of state.players) {
-    if (player.eliminated) continue;
-    if (cardId === "guard" || cardId === "priest" || cardId === "baron" || cardId === "king") {
-      if (player.id === playerId) continue;
-      if (player.protected) continue;
-      valid.push(player);
-      continue;
-    }
-    if (cardId === "prince") {
-      if (player.id === playerId) {
-        valid.push(player);
-        continue;
-      }
-      if (player.protected) continue;
-      valid.push(player);
-    }
-  }
-  return valid;
 }
 
 function renderHand() {
@@ -290,11 +334,6 @@ function renderPlayers() {
       miniDiscard.appendChild(mini);
     });
     card.appendChild(miniDiscard);
-    card.addEventListener("click", () => {
-      selectedTarget = player.id;
-      targetSelect.value = String(player.id);
-      renderPlayers();
-    });
     playersEl.appendChild(card);
   });
 }
@@ -348,26 +387,6 @@ function renderSelectors() {
       option.textContent = player.name;
       option.selected = player.id === playerId;
       seatSelect.appendChild(option);
-    });
-  }
-
-  targetSelect.innerHTML = "";
-  const noneOption = document.createElement("option");
-  noneOption.value = "";
-  noneOption.textContent = "None";
-  targetSelect.appendChild(noneOption);
-
-  if (state) {
-    const selectedCardId = getSelectedCardId();
-    const targets = selectedCardId ? getValidTargets(selectedCardId) : state.players;
-    targets.forEach((player) => {
-      const option = document.createElement("option");
-      option.value = player.id;
-      option.textContent = player.name;
-      if (player.id === selectedTarget) {
-        option.selected = true;
-      }
-      targetSelect.appendChild(option);
     });
   }
 
@@ -431,10 +450,75 @@ function renderInvitePanel() {
   inviteCodeInput.value = state.join_code;
 }
 
+function renderCardPreview() {
+  const selectedCardId = getSelectedCardId();
+  const cardId = previewCardId ?? selectedCardId;
+  if (!cardId || hidden) {
+    cardPreviewEl.hidden = true;
+    return;
+  }
+  cardPreviewEl.hidden = false;
+  cardPreviewImageEl.src = cardPath(cardId);
+  cardPreviewNameEl.textContent = CARD_META[cardId]?.name ?? cardId;
+  cardPreviewHintEl.textContent = CARD_META[cardId]?.hint ?? "";
+}
+
+function renderActionTray() {
+  const selectedCardId = getSelectedCardId();
+  if (!state || !selectedCardId) {
+    actionTrayEl.hidden = true;
+    targetPickerEl.hidden = true;
+    return;
+  }
+
+  const meta = CARD_META[selectedCardId] ?? {};
+  actionTrayEl.hidden = false;
+  actionSummaryEl.textContent = `Selected: ${meta.name}. ${meta.hint ?? ""}`;
+  btnPlayContext.textContent = `Play ${meta.name}`;
+
+  if (!meta.needsTarget) {
+    targetPickerEl.hidden = true;
+    return;
+  }
+
+  const options = getTargetOptions(selectedCardId);
+  const selectableTargetIds = options.filter((item) => item.selectable).map((item) => item.player.id);
+  if (selectedTarget !== null && !selectableTargetIds.includes(selectedTarget)) {
+    selectedTarget = null;
+  }
+
+  targetPickerEl.hidden = false;
+  targetPickerEl.innerHTML = "";
+  options.forEach(({ player, selectable, reason }) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "target-option";
+    if (selectedTarget === player.id) {
+      option.classList.add("selected");
+    }
+    option.disabled = !selectable;
+    option.innerHTML = `<span class="name">${player.name}</span><span class="reason">${reason}</span>`;
+    option.addEventListener("click", () => {
+      selectedTarget = player.id;
+      render();
+    });
+    targetPickerEl.appendChild(option);
+  });
+
+  if (selectableTargetIds.length === 0) {
+    const note = document.createElement("p");
+    note.className = "preview-hint";
+    note.textContent = "No valid targets now. You can still play this card.";
+    targetPickerEl.appendChild(note);
+  }
+}
+
 function render() {
   renderSelectors();
-  renderPlayers();
   renderHand();
+  renderCardPreview();
+  renderActionTray();
+  renderPlayers();
   renderPiles();
   renderLog();
   renderMessages();
@@ -519,6 +603,7 @@ async function createTable() {
     playerId = state.viewer_id;
     selectedIndex = null;
     selectedTarget = null;
+    previewCardId = null;
     joinCodeInput.value = payload.join_code;
     persistSession();
     setTableStatus(`Created table ${gameId}. Share join code ${payload.join_code}.`);
@@ -563,6 +648,7 @@ async function joinTable() {
     playerId = state.viewer_id;
     selectedIndex = null;
     selectedTarget = null;
+    previewCardId = null;
     persistSession();
     setTableStatus(`Joined table ${gameId} with code ${payload.join_code}.`);
     render();
@@ -579,6 +665,7 @@ function leaveTable() {
   playerId = null;
   selectedIndex = null;
   selectedTarget = null;
+  previewCardId = null;
   localMessages = [];
   persistSession();
   setTableStatus("Disconnected from table.");
@@ -620,9 +707,10 @@ async function playSelected() {
   }
   const cardId = hand[selectedIndex];
   const meta = CARD_META[cardId] ?? {};
-  const targets = getValidTargets(cardId);
-  const target = targetSelect.value ? Number(targetSelect.value) : null;
-  if (meta.needsTarget && targets.length > 0 && target === null) {
+  const targetOptions = getTargetOptions(cardId);
+  const selectableTargetIds = targetOptions.filter((item) => item.selectable).map((item) => item.player.id);
+  const target = selectedTarget;
+  if (meta.needsTarget && selectableTargetIds.length > 0 && (target === null || !selectableTargetIds.includes(target))) {
     addMessage("Select a target.");
     return;
   }
@@ -648,6 +736,8 @@ async function playSelected() {
     stateSignature = JSON.stringify(state);
     playerId = state.viewer_id;
     selectedIndex = null;
+    selectedTarget = null;
+    previewCardId = null;
     render();
   } finally {
     setBusy(false);
@@ -679,7 +769,7 @@ async function nextRound() {
 }
 
 btnStart.addEventListener("click", startTurn);
-btnPlay.addEventListener("click", playSelected);
+btnPlayContext.addEventListener("click", playSelected);
 btnNextRound.addEventListener("click", nextRound);
 btnCreateTable.addEventListener("click", createTable);
 btnJoinTable.addEventListener("click", joinTable);
@@ -698,6 +788,12 @@ btnHide.addEventListener("click", () => {
   btnHide.textContent = hidden ? "Show Hand" : "Hide Hand";
   render();
 });
+btnCancelSelect.addEventListener("click", () => {
+  selectedIndex = null;
+  selectedTarget = null;
+  previewCardId = null;
+  render();
+});
 
 joinCodeInput.addEventListener("input", () => {
   joinCodeInput.value = normalizeJoinCode(joinCodeInput.value);
@@ -707,11 +803,6 @@ joinCodeInput.addEventListener("focus", () => {
 });
 inviteCodeInput.addEventListener("focus", () => {
   inviteCodeInput.select();
-});
-
-targetSelect.addEventListener("change", () => {
-  selectedTarget = targetSelect.value ? Number(targetSelect.value) : null;
-  renderPlayers();
 });
 
 discardZone.addEventListener("dragover", (event) => {

@@ -24,7 +24,6 @@
       </div>
       <div class="actions">
         <button id="btn-start">Start Turn</button>
-        <button id="btn-play">Play Selected</button>
         <button id="btn-hide" class="ghost">Hide Hand</button>
         <button id="btn-next-round" class="ghost">Next Round</button>
       </div>
@@ -66,10 +65,6 @@
           <select id="seat-select" disabled></select>
         </div>
         <div class="control">
-          <label for="target-select">Target</label>
-          <select id="target-select"></select>
-        </div>
-        <div class="control">
           <label for="guess-select">Guard Guess</label>
           <select id="guess-select"></select>
         </div>
@@ -102,8 +97,26 @@
 
         <div class="hand-zone">
           <h2>Hand</h2>
-          <p class="hint">Drag a card onto the discard pile or click to select, then press Play.</p>
-          <div id="hand" class="card-row"></div>
+          <p class="hint">Click a card to open actions. Hover any hand card to preview it larger.</p>
+          <div class="hand-shell">
+            <div id="hand" class="card-row"></div>
+            <div id="card-preview" class="card-preview" hidden>
+              <p class="preview-label">Card Preview</p>
+              <div class="card preview-card">
+                <img id="card-preview-image" alt="Selected card preview" />
+              </div>
+              <p id="card-preview-name" class="preview-name"></p>
+              <p id="card-preview-hint" class="preview-hint"></p>
+            </div>
+          </div>
+          <div id="action-tray" class="action-tray" hidden>
+            <p id="action-summary" class="action-summary"></p>
+            <div id="target-picker" class="target-picker" hidden></div>
+            <div class="action-buttons">
+              <button id="btn-play-context">Play Card</button>
+              <button id="btn-cancel-select" class="ghost">Cancel</button>
+            </div>
+          </div>
         </div>
       </section>
 
