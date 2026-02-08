@@ -33,8 +33,37 @@
     <main class="layout">
       <section class="controls">
         <div class="control">
-          <label for="player-select">Seat</label>
-          <select id="player-select"></select>
+          <label for="name-input">Your Name</label>
+          <input id="name-input" type="text" maxlength="24" placeholder="Player name" />
+        </div>
+        <div class="control action-control">
+          <label>&nbsp;</label>
+          <button id="btn-create-table" class="ghost">Create Table</button>
+        </div>
+        <div class="control">
+          <label for="join-code-input">Join Code</label>
+          <input id="join-code-input" type="text" maxlength="6" placeholder="ABC123" />
+        </div>
+        <div class="control action-control">
+          <label>&nbsp;</label>
+          <button id="btn-join-table" class="ghost">Join Table</button>
+        </div>
+        <div class="control action-control">
+          <label>&nbsp;</label>
+          <button id="btn-leave-table" class="ghost">Leave Table</button>
+        </div>
+        <div class="control wide" id="table-status"></div>
+        <div class="control wide invite-panel" id="invite-panel" hidden>
+          <label for="invite-code">Invite Player 2</label>
+          <div class="invite-row">
+            <input id="invite-code" class="code-input" type="text" readonly />
+            <button id="btn-copy-code" class="ghost" type="button">Copy Code</button>
+            <button id="btn-copy-link" class="ghost" type="button">Copy Link</button>
+          </div>
+        </div>
+        <div class="control">
+          <label for="seat-select">Seat</label>
+          <select id="seat-select" disabled></select>
         </div>
         <div class="control">
           <label for="target-select">Target</label>

@@ -39,6 +39,9 @@ def test_assets_serve() -> None:
 
 
 def test_api_flow_start_and_play() -> None:
+    reset = client.post("/api/new", json={"names": ["A", "B"]})
+    assert reset.status_code == 200
+
     response = client.get("/api/state?player_id=0")
     assert response.status_code == 200
     state = response.json()

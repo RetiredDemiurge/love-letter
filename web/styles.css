@@ -134,10 +134,57 @@ button.ghost {
   font-size: 1rem;
 }
 
+.control input {
+  padding: 0.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  font-family: "Crimson Pro", serif;
+  font-size: 1rem;
+}
+
+.control.wide {
+  grid-column: 1 / -1;
+}
+
+.action-control button {
+  width: 100%;
+}
+
+.invite-panel {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(134, 45, 42, 0.2);
+  border-radius: 0.8rem;
+  padding: 0.8rem;
+}
+
+.invite-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) auto auto;
+  gap: 0.6rem;
+}
+
+.code-input {
+  font-family: "Cinzel", serif;
+  letter-spacing: 0.15rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .status {
   font-weight: 600;
   color: var(--crimson);
   justify-content: center;
+}
+
+#table-status {
+  color: var(--ink-soft);
+  font-size: 1rem;
+}
+
+@media (max-width: 900px) {
+  .invite-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .tabletop {
