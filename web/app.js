@@ -25,6 +25,7 @@ const cardPath = (id) => `../assets/cards/${id}.png`;
 
 const handEl = document.querySelector("#hand");
 const logEl = document.querySelector("#log");
+const messagesEl = document.querySelector("#messages");
 const galleryEl = document.querySelector("#gallery");
 const playersEl = document.querySelector("#players");
 const statusEl = document.querySelector("#status");
@@ -49,11 +50,18 @@ let selectedIndex = null;
 let selectedTarget = null;
 let hidden = false;
 let playerId = 0;
+let busy = false;
+let fetchSeq = 0;
+let localMessages = [];
 
-function log(message) {
-  const item = document.createElement("li");
-  item.textContent = message;
-  logEl.prepend(item);
+function addMessage(message) {
+  localMessages = [message, ...localMessages].slice(0, 20);
+  renderMessages();
+}
+
+function setBusy(value) {
+  busy = value;
+  updateControls();
 }
 
 function setStatus(message) {
@@ -66,9 +74,9 @@ function updateControls() {
   const isMyTurn = state.current_player_id === playerId;
 
   const handCount = me?.hand_count ?? 0;
-  btnStart.disabled = state.game_over || state.round_over || !isMyTurn || handCount !== 1;
-  btnPlay.disabled = state.game_over || state.round_over || !isMyTurn || handCount !== 2;
-  btnNextRound.disabled = state.game_over || !state.round_over;
+  btnStart.disabled = busy || state.game_over || state.round_over || !isMyTurn || handCount !== 1;
+  btnPlay.disabled = busy || state.game_over || state.round_over || !isMyTurn || handCount !== 2;
+  btnNextRound.disabled = busy || state.game_over || !state.round_over;
 }
 
 function createCard(cardId, index) {
@@ -248,10 +256,24 @@ function renderSelectors() {
 
 function renderLog() {
   logEl.innerHTML = "";
-  [...state.events].reverse().forEach((event) => {
+  const publicEntries =
+    state.public_log ??
+    (state.events ?? []).map((event) => `${event.kind}: ${JSON.stringify(event.data)}`);
+  [...publicEntries].reverse().forEach((entry) => {
     const li = document.createElement("li");
-    li.textContent = `${event.kind}: ${JSON.stringify(event.data)}`;
+    li.textContent = entry;
     logEl.appendChild(li);
+  });
+}
+
+function renderMessages() {
+  messagesEl.innerHTML = "";
+  const privateEntries = [...(state?.private_log ?? [])].reverse();
+  const allEntries = [...localMessages, ...privateEntries];
+  allEntries.forEach((entry) => {
+    const li = document.createElement("li");
+    li.textContent = entry;
+    messagesEl.appendChild(li);
   });
 }
 
@@ -265,17 +287,24 @@ function render() {
   renderHand();
   renderPiles();
   renderLog();
+  renderMessages();
   setStatus(state.game_over ? "Game Over" : state.round_over ? "Round Over" : "In Play");
   updateControls();
 }
 
 async function fetchState() {
+  const requestId = fetchSeq + 1;
+  fetchSeq = requestId;
   const response = await fetch(`/api/state?player_id=${playerId}`);
   if (!response.ok) {
-    log("Server not available. Start the FastAPI server.");
+    addMessage("Server not available. Start the FastAPI server.");
     return;
   }
-  state = await response.json();
+  const nextState = await response.json();
+  if (requestId !== fetchSeq) {
+    return;
+  }
+  state = nextState;
   if (!state.players.find((player) => player.id === playerId)) {
     playerId = state.players[0]?.id ?? 0;
   }
@@ -283,24 +312,35 @@ async function fetchState() {
 }
 
 async function startTurn() {
-  const response = await fetch("/api/start", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ player_id: playerId }),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    log(error.detail || "Start turn failed.");
+  if (busy) {
     return;
   }
-  state = await response.json();
-  render();
+  setBusy(true);
+  try {
+    const response = await fetch("/api/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player_id: playerId }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      addMessage(error.detail || "Start turn failed.");
+      return;
+    }
+    state = await response.json();
+    render();
+  } finally {
+    setBusy(false);
+  }
 }
 
 async function playSelected() {
+  if (busy) {
+    return;
+  }
   const hand = getMyHand();
   if (selectedIndex === null || !hand[selectedIndex]) {
-    log("Select a card first.");
+    addMessage("Select a card first.");
     return;
   }
   const cardId = hand[selectedIndex];
@@ -308,7 +348,7 @@ async function playSelected() {
   const targets = getValidTargets(cardId);
   const target = targetSelect.value ? Number(targetSelect.value) : null;
   if (meta.needsTarget && targets.length > 0 && target === null) {
-    log("Select a target.");
+    addMessage("Select a target.");
     return;
   }
   const payload = {
@@ -317,32 +357,44 @@ async function playSelected() {
     target_id: meta.needsTarget ? target : null,
     guess: meta.needsGuess ? guessSelect.value : null,
   };
+  setBusy(true);
+  try {
+    const response = await fetch("/api/play", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-  const response = await fetch("/api/play", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    log(error.detail || "Play failed.");
-    return;
+    if (!response.ok) {
+      const error = await response.json();
+      addMessage(error.detail || "Play failed.");
+      return;
+    }
+    state = await response.json();
+    selectedIndex = null;
+    render();
+  } finally {
+    setBusy(false);
   }
-  state = await response.json();
-  selectedIndex = null;
-  render();
 }
 
 async function nextRound() {
-  const response = await fetch("/api/next_round", { method: "POST" });
-  if (!response.ok) {
-    const error = await response.json();
-    log(error.detail || "Next round failed.");
+  if (busy) {
     return;
   }
-  state = await response.json();
-  render();
+  setBusy(true);
+  try {
+    const response = await fetch("/api/next_round", { method: "POST" });
+    if (!response.ok) {
+      const error = await response.json();
+      addMessage(error.detail || "Next round failed.");
+      return;
+    }
+    state = await response.json();
+    render();
+  } finally {
+    setBusy(false);
+  }
 }
 
 btnStart.addEventListener("click", startTurn);

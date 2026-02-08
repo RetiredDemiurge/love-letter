@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from love_letter.server import app
+from love_letter.server import SESSION, app
 
 
 client = TestClient(app)
@@ -72,6 +72,54 @@ def test_api_flow_start_and_play() -> None:
     assert response.status_code == 200
     next_state = response.json()
     assert "players" in next_state
+
+
+def test_api_start_turn_rejects_multiple_draws() -> None:
+    SESSION.rng.seed(0)
+    response = client.post("/api/new", json={"names": ["A", "B"]})
+    assert response.status_code == 200
+    state = response.json()
+    current_player = state["current_player_id"]
+
+    first = client.post("/api/start", json={"player_id": current_player})
+    assert first.status_code == 200
+
+    second = client.post("/api/start", json={"player_id": current_player})
+    assert second.status_code == 400
+    assert "already drawn" in second.json()["detail"].lower()
+
+    state_for_current = client.get("/api/state", params={"player_id": current_player}).json()
+    current = next(player for player in state_for_current["players"] if player["id"] == current_player)
+    assert len(current["hand"]) == 2
+
+
+def test_api_priest_reveal_is_private() -> None:
+    SESSION.rng.seed(16)
+    response = client.post("/api/new", json={"names": ["A", "B"]})
+    assert response.status_code == 200
+    state = response.json()
+    current_player = state["current_player_id"]
+    target_player = 1 if current_player == 0 else 0
+
+    state = client.post("/api/start", json={"player_id": current_player}).json()
+    current = next(player for player in state["players"] if player["id"] == current_player)
+    assert "priest" in current["hand"]
+
+    play = client.post(
+        "/api/play",
+        json={"player_id": current_player, "card": "priest", "target_id": target_player, "guess": None},
+    )
+    assert play.status_code == 200
+    current_view = play.json()
+
+    reveal_events = [event for event in current_view["events"] if event["kind"] == "reveal"]
+    assert reveal_events
+    assert "card" not in reveal_events[-1]["data"]
+    assert any("looked at" in line.lower() for line in current_view["public_log"])
+    assert any("you looked at" in line.lower() for line in current_view["private_log"])
+
+    other_view = client.get("/api/state", params={"player_id": target_player}).json()
+    assert other_view["private_log"] == []
 
 
 def _choose_card(hand: list[str]) -> str:

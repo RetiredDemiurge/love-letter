@@ -262,7 +262,24 @@ button.ghost {
 }
 
 .card.hidden img {
-  filter: saturate(0) brightness(0.3);
+  display: none;
+}
+
+.card.hidden {
+  background: linear-gradient(135deg, #8b2d2a, #5d1c1a 55%, #2f100f);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+.card.hidden::after {
+  content: "LL";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: "Cinzel", serif;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 2rem;
+  letter-spacing: 0.3rem;
 }
 
 .card:hover {

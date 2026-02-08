@@ -67,6 +67,18 @@ class GameSession:
         players = []
         for player in round_state.players:
             players.append(_serialize_player(player, include_hand=player_id == player.id))
+
+        player_lookup = {player.id: player.name for player in round_state.players}
+        recent_events = round_state.events[-40:]
+        public_log = [_format_public_event(event, player_lookup) for event in recent_events]
+        private_log = []
+        if player_id is not None:
+            private_log = [
+                message
+                for message in (_format_private_event(event, player_lookup, player_id) for event in recent_events)
+                if message is not None
+            ]
+
         return {
             "players": players,
             "current_player_id": round_state.players[round_state.current_player_idx].id,
@@ -76,7 +88,9 @@ class GameSession:
             "deck_count": len(round_state.deck),
             "burned_count": len(round_state.burned),
             "face_up": [_card_id(card) for card in round_state.face_up],
-            "events": [_serialize_event(event) for event in round_state.events[-20:]],
+            "events": [_serialize_public_event(event) for event in recent_events],
+            "public_log": public_log,
+            "private_log": private_log,
             "game_over": game_over(self.game_state),
         }
 
@@ -208,6 +222,94 @@ def _serialize_event(event: Any) -> dict[str, Any]:
         "kind": event.kind,
         "data": _serialize_event_data(event.data),
     }
+
+
+def _serialize_public_event(event: Any) -> dict[str, Any]:
+    kind = event.kind
+    data = event.data
+    if kind == "draw":
+        return {"kind": kind, "data": {"player_id": data.get("player_id"), "reason": data.get("reason")}}
+    if kind == "reveal":
+        return {
+            "kind": kind,
+            "data": {"viewer_id": data.get("viewer_id"), "target_id": data.get("target_id")},
+        }
+    if kind == "baron_compare":
+        return {
+            "kind": kind,
+            "data": {"player_id": data.get("player_id"), "target_id": data.get("target_id")},
+        }
+    return _serialize_event(event)
+
+
+def _format_public_event(event: Any, lookup: dict[int, str]) -> str:
+    kind = event.kind
+    data = event.data
+
+    if kind == "round_start":
+        return f"Round {data.get('round')} begins. Start player: {lookup.get(data.get('start_player_id'), 'Unknown')}."
+    if kind == "face_up":
+        cards = ", ".join(_card_id(card) for card in data.get("cards", []))
+        return f"Face-up removed cards: {cards}."
+    if kind == "draw":
+        return f"{lookup.get(data.get('player_id'), 'Unknown')} draws a card."
+    if kind == "play":
+        return f"{lookup.get(data.get('player_id'), 'Unknown')} plays {_card_id(data.get('card'))}."
+    if kind == "guard_guess":
+        return (
+            f"{lookup.get(data.get('player_id'), 'Unknown')} guesses {_card_id(data.get('guess'))} "
+            f"on {lookup.get(data.get('target_id'), 'Unknown')}."
+        )
+    if kind == "reveal":
+        return (
+            f"{lookup.get(data.get('viewer_id'), 'Unknown')} looked at "
+            f"{lookup.get(data.get('target_id'), 'Unknown')}'s hand."
+        )
+    if kind == "baron_compare":
+        return (
+            f"{lookup.get(data.get('player_id'), 'Unknown')} compares hand with "
+            f"{lookup.get(data.get('target_id'), 'Unknown')}."
+        )
+    if kind == "protected":
+        return f"{lookup.get(data.get('player_id'), 'Unknown')} is protected."
+    if kind == "protection_ended":
+        return f"{lookup.get(data.get('player_id'), 'Unknown')}'s protection ends."
+    if kind == "discard":
+        return f"{lookup.get(data.get('player_id'), 'Unknown')} discards {_card_id(data.get('card'))}."
+    if kind == "eliminated":
+        return f"{lookup.get(data.get('player_id'), 'Unknown')} is eliminated."
+    if kind == "swap":
+        return (
+            f"{lookup.get(data.get('player_id'), 'Unknown')} swaps hands with "
+            f"{lookup.get(data.get('target_id'), 'Unknown')}."
+        )
+    if kind == "countess_no_effect":
+        return f"{lookup.get(data.get('player_id'), 'Unknown')}'s countess has no effect."
+    if kind == "round_end":
+        winners = ", ".join(lookup.get(player_id, "Unknown") for player_id in data.get("winners", []))
+        return f"Round ends. Winner(s): {winners}."
+    if kind == "token_awarded":
+        return f"{lookup.get(data.get('player_id'), 'Unknown')} gains a token."
+    if kind == "deck_empty":
+        return "Deck is empty. Round ends now."
+    return f"{kind}: {_serialize_event_data(data)}"
+
+
+def _format_private_event(event: Any, lookup: dict[int, str], viewer_id: int) -> str | None:
+    kind = event.kind
+    data = event.data
+    if kind == "reveal" and data.get("viewer_id") == viewer_id:
+        return (
+            f"You looked at {lookup.get(data.get('target_id'), 'Unknown')}'s hand: "
+            f"{_card_id(data.get('card'))}."
+        )
+    if kind == "baron_compare" and viewer_id in {data.get("player_id"), data.get("target_id")}:
+        return (
+            "Baron compare details: "
+            f"{lookup.get(data.get('player_id'), 'Unknown')} ({_card_id(data.get('player_card'))}) vs "
+            f"{lookup.get(data.get('target_id'), 'Unknown')} ({_card_id(data.get('target_card'))})."
+        )
+    return None
 
 
 if __name__ == "__main__":
